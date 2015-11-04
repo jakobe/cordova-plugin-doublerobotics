@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+    id="cordova-plugin-doublerobotics"
+    version="0.0.1">
+    <name>DoubleRobotics</name>
+    <description>Cordova iOS plugin exposing the full DoubleRobotics SDK</description>
+    <author>Jakob Engelbrecht Olesen @ basher.dk.</author>
+    <engines>
+        <engine name="cordova-ios" version=">=3.8.0" />
+    </engines>
+    <js-module name="DoubleRobotics" src="www/DoubleRobotics.js">
+        <clobbers target="cordova.plugins.DoubleRobotics" />
+    </js-module>
+    <platform name="ios">
+        <js-module name="DoubleRobotics" src="www/DoubleRobotics.js">
+            <clobbers target="cordova.plugins.DoubleRobotics" />
+        </js-module>
+        <config-file target="config.xml" parent="/*">
+            <feature name="DoubleRoboticsPlugin">
+                <param name="ios-package" value="DoubleRobotics" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+        <config-file target="*-Info.plist" parent="Supported external accessory protocols">
+            <array>
+                <string>com.doublerobotics.pancho</string>
+            </array>
+        </config-file>
+        <!-- Bridging header for using ObjetiveC libraries in Swift -->
+        <header-file src="src/DoubleRoboticsPlugin-Bridging-Header.h" />
+        <!-- Project source files -->
+        <source-file src="src/DoubleRoboticsPlugin.swift" />
+        <!-- iOS shared dependencies -->
+        <framework src="ExternalAccessory.framework" />
+        <!-- DoubleControl SDK -->
+        <framework src="lib/DoubleControlSDK.framework" custom="true" />
+    </platform>
+</plugin>
