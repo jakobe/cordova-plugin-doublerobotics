@@ -18,7 +18,7 @@
                 <param name="onload" value="true" />
             </feature>
         </config-file>
-        <config-file target="*-Info.plist" parent="Supported external accessory protocols">
+        <config-file target="*-Info.plist" parent="UISupportedExternalAccessoryProtocols">
             <array>
                 <string>com.doublerobotics.pancho</string>
             </array>
