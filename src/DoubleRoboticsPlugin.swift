@@ -1,6 +1,6 @@
 //
-//  CDVDoubleRobotics.swift
-//  DRPlugin
+//  DoubleRoboticsPlugin.swift
+//  DoubleRobotics
 //
 //  Created by Jakob Engelbrecht Olesen on 03/11/2015.
 //
@@ -9,7 +9,7 @@
 import Foundation
 
 @objc(DoubleRobotics) // This class must be accessible from Objective-C.
-class DoubleRoboticsPlugin : CDVPlugin, DRDoubleDelegate  {
+class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     
     var currentDriveDirection = DRDriveDirection.Stop;
     var currentTurn:Float = 0.0;

@@ -9,14 +9,11 @@
         <engine name="cordova-ios" version=">=3.8.0" />
     </engines>
     <js-module name="DoubleRobotics" src="www/DoubleRobotics.js">
-        <clobbers target="cordova.plugins.DoubleRobotics" />
+        <clobbers target="cordova.plugins.doubleRobotics" />
     </js-module>
     <platform name="ios">
-        <js-module name="DoubleRobotics" src="www/DoubleRobotics.js">
-            <clobbers target="cordova.plugins.DoubleRobotics" />
-        </js-module>
         <config-file target="config.xml" parent="/*">
-            <feature name="DoubleRoboticsPlugin">
+            <feature name="DoubleRobotics">
                 <param name="ios-package" value="DoubleRobotics" />
                 <param name="onload" value="true" />
             </feature>
