@@ -23,13 +23,13 @@
                 <string>com.doublerobotics.pancho</string>
             </array>
         </config-file>
+        <!-- DoubleControl SDK -->
+        <framework src="lib/DoubleControlSDK.framework" custom="true" />
+        <!-- iOS shared dependencies -->
+        <framework src="ExternalAccessory.framework" />
         <!-- Bridging header for using ObjetiveC libraries in Swift -->
         <header-file src="src/DoubleRoboticsPlugin-Bridging-Header.h" />
         <!-- Project source files -->
         <source-file src="src/DoubleRoboticsPlugin.swift" />
-        <!-- iOS shared dependencies -->
-        <framework src="ExternalAccessory.framework" />
-        <!-- DoubleControl SDK -->
-        <framework src="lib/DoubleControlSDK.framework" custom="true" />
     </platform>
 </plugin>
