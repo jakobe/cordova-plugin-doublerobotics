@@ -13,6 +13,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     
     var currentDriveDirection = DRDriveDirection.Stop;
     var currentTurn:Float = 0.0;
+	var currentTurnByDegrees:Float = 0.0;
+	var currentVariableDriveDirection:Float = 0.0;
+	var leftEncoderDeltaInches:Float = 0.0;
+	var rightEncoderDeltaInches:Float = 0.0;
+	var leftEncoderDeltaCm:Float = 0.0;
+	var rightEncoderDeltaCm:Float = 0.0;
 
     override func pluginInitialize() {
         super.pluginInitialize()
@@ -23,12 +29,19 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     func doubleDriveShouldUpdate(theDouble:DRDouble) {
         //NSLog("doubleDriveShouldUpdate... from plugin")
         let drive = currentDriveDirection;
+		let variableDrive = currentVariableDriveDirection;
         let turn = currentTurn;
-        if (drive != DRDriveDirection.Stop || turn != 0.0) {
+        if (variableDrive != 0.0 || turn != 0.0) {
+            theDouble.variableDrive(variableDrive, turn: turn)
+		} else if (drive != DRDriveDirection.Stop || turn != 0.0) {
             theDouble.drive(drive, turn: turn)
-        }
+        } else if (currentTurnByDegrees != 0.0) {
+			theDouble.turnByDegrees(currentTurnByDegrees)
+			currentTurnByDegrees = 0.0
+		}
         currentDriveDirection = DRDriveDirection.Stop
         currentTurn = 0.0
+		currentVariableDriveDirection = 0.0
     }
     
     func doubleStatusDidUpdate(theDouble: DRDouble!) {
@@ -38,6 +51,13 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         NSLog("*** batteryIsFullyCharged: \(DRDouble.sharedDouble().batteryIsFullyCharged) ***")
         NSLog("*** firmwareVersion: \(DRDouble.sharedDouble().firmwareVersion) ***")
     }
+
+	func doubleTravelDataDidUpdate(theDouble: DRDouble!) {
+		leftEncoderDeltaInches = leftEncoderDeltaInches + DRDouble.sharedDouble().leftEncoderDeltaInches;
+		rightEncoderDeltaInches = rightEncoderDeltaInches + DRDouble.sharedDouble().rightEncoderDeltaInches;
+		leftEncoderDeltaCm = leftEncoderDeltaInches * 2.54;
+		rightEncoderDeltaCm = rightEncoderDeltaInches * 2.54;
+	}
     
     func pole(command: CDVInvokedUrlCommand) {
         let poleCommand = command.arguments[0] as! String
@@ -51,7 +71,6 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
             break;
         case "poleStop":
             DRDouble.sharedDouble().poleStop()
-            DRDouble.sharedDouble().turnByDegrees(180)
             message = "Pole Stop!"
             break;
         case "poleUp":
@@ -86,6 +105,30 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsString: message)
         commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
     }
+
+	func travelData(command: CDVInvokedUrlCommand) {
+		let travelDataCommand = command.arguments[0] as! String
+		var message = "Unknown command."
+		switch (travelDataCommand) {
+        case "startTravelData":
+			leftEncoderDeltaInches = 0.0
+			rightEncoderDeltaInches = 0.0
+			leftEncoderDeltaCm = 0.0
+			rightEncoderDeltaCm = 0.0
+			DRDouble.sharedDouble().startTravelData()
+			message = "Travel data started."
+            break;
+        case "stopTravelData":
+			DRDouble.sharedDouble().stopTravelData()
+			message = "Travel data stopped."
+            break;
+        default:
+            break;
+        }
+
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsString: message)
+        commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
+    }
     
     func drive(command: CDVInvokedUrlCommand) {
         let driveCommand = command.arguments[0] as! String
@@ -112,6 +155,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
             currentTurn = 1.0
             message = "turnRight"
             break;
+        case "turnByDegrees":
+            currentDriveDirection = DRDriveDirection.Stop
+            currentTurn = 0.0
+			currentTurnByDegrees = 180;
+            message = "turnByDegrees"
+            break;
         default:
             break;
         }
@@ -120,5 +169,42 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
     }
     
+	func variableDrive(command: CDVInvokedUrlCommand) {
+        let driveCommand = command.arguments[0] as! String
+		let driveDirection = command.arguments[1] as! Float
+		let turn = command.arguments[2] as! Float
+        var message = "Unknown command."
+		//var data: NSDictionary?
+        
+        switch (driveCommand) {
+        case "drive":
+            currentVariableDriveDirection = driveDirection
+            currentTurn = turn
+            //message = "VariableDriveForward - driveDirection: \(driveDirection) | leftEncoderDeltaInches: \(leftEncoderDeltaInches) | rightEncoderDeltaInches: \(rightEncoderDeltaInches) | batteryPercent: \(DRDouble.sharedDouble().batteryPercent) | firmwareVersion: \(DRDouble.sharedDouble().firmwareVersion) | serial: \(DRDouble.sharedDouble().serial)"
+			//message = "leftEncoderDeltaInches: \(leftEncoderDeltaInches) | rightEncoderDeltaInches: \(rightEncoderDeltaInches)"
+			message = "leftEncoderDeltaInches: \(leftEncoderDeltaInches) | rightEncoderDeltaInches: \(rightEncoderDeltaInches)"
+            break;
+        case "turnByDegrees":
+            currentDriveDirection = DRDriveDirection.Stop
+            currentTurn = 0.0
+			currentTurnByDegrees = turn
+            message = "turnByDegrees: \(currentTurnByDegrees)"
+            break;
+        default:
+            break;
+        }
+
+		let data = [
+				"serial" : DRDouble.sharedDouble().serial,
+				"message" : message,
+				"leftEncoderDeltaInches" : leftEncoderDeltaInches,
+				"rightEncoderDeltaInches" : rightEncoderDeltaInches,
+				"leftEncoderDeltaCm" : leftEncoderDeltaCm,
+				"rightEncoderDeltaCm" : rightEncoderDeltaCm
+		]
+        
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsDictionary: data as [NSObject : AnyObject])
+        commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
+    }
     
 }
