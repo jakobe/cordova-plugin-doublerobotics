@@ -399,8 +399,5 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
             return self.state == .Driving || self.state == .Rolling
         }
     }
-
-    
-
     
 }
