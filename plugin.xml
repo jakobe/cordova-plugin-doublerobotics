@@ -28,9 +28,9 @@
         <!-- iOS shared dependencies -->
         <framework src="ExternalAccessory.framework" />
         <!-- Bridging header for using ObjetiveC libraries in Swift -->
-        <header-file src="src/DoubleRoboticsPlugin-Bridging-Header.h" />
+        <header-file src="src/ios/DoubleRoboticsPlugin-Bridging-Header.h" />
         <!-- Project source files -->
-        <source-file src="src/DoubleRoboticsPlugin.swift" />
+        <source-file src="src/ios/DoubleRoboticsPlugin.swift" />
         <hook type="after_plugin_install" src="hooks/swift-support.js" />
     </platform>
 </plugin>
