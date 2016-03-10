@@ -33,4 +33,16 @@
         <source-file src="src/ios/DoubleRoboticsPlugin.swift" />
         <hook type="after_plugin_install" src="hooks/swift-support.js" />
     </platform>
+    <!-- browser -->
+    <platform name="browser">
+        <config-file target="config.xml" parent="/*">
+            <feature name="DoubleRobotics">
+                <param name="browser-package" value="DoubleRobotics" />
+            </feature>
+        </config-file>
+
+        <js-module src="src/browser/DoubleRoboticsProxy.js" name="DoubleRoboticsProxy">
+            <runs />
+        </js-module>
+    </platform>
 </plugin>
