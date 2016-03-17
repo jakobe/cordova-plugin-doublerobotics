@@ -2,8 +2,8 @@ function DoubleRoboticsProxy() {
     var travelDataCallback,
         collisionCallback,
         driveIntervalId,
-        leftEncoderDeltaCm,
-        rightEncoderDeltaCm,
+        leftEncoderTotalCm,
+        rightEncoderTotalCm,
         driveData = [],
         driveStartDate;
 
@@ -27,8 +27,8 @@ function DoubleRoboticsProxy() {
         switch (travelDataCommand) {
             case "startTravelData":
                 driveStartDate = new Date();
-                leftEncoderDeltaCm = 0.0;
-                rightEncoderDeltaCm = 0.0;
+                leftEncoderTotalCm = 0.0;
+                rightEncoderTotalCm = 0.0;
                 console.log("TravelData started");
                 break;
         }
@@ -45,8 +45,8 @@ function DoubleRoboticsProxy() {
         if (typeof driveDirection === "string") driveDirection = parseFloat(driveDirection);
         //if (!driveStartDate) {
         driveStartDate = new Date();
-        leftEncoderDeltaCm = 0.0;
-        rightEncoderDeltaCm = 0.0;
+        leftEncoderTotalCm = 0.0;
+        rightEncoderTotalCm = 0.0;
         //}
         //console.log("DoubleRoboticsProxy.drive | driveDirection:" + driveDirection);// + " (" + new Date().toISOString() + ")");
         if (driveIntervalId) {
@@ -55,27 +55,27 @@ function DoubleRoboticsProxy() {
         driveIntervalId = setInterval(function () {
             driveCounter++;
             var deaccelerateStart = 50;
-            var remainingRange = rangeInCm - Math.abs(leftEncoderDeltaCm);
+            var remainingRange = rangeInCm - Math.abs(leftEncoderTotalCm);
             if (rangeInCm && remainingRange < deaccelerateStart) {
                 driveDirection *= 0.95;
             }
-            leftEncoderDeltaCm += (10.0 * driveDirection);
-            rightEncoderDeltaCm += (10.0 * driveDirection);
+            leftEncoderTotalCm += (10.0 * driveDirection);
+            rightEncoderTotalCm += (10.0 * driveDirection);
             var elapsedTimeInMs = new Date() - driveStartDate;
             var newData = {
                 speed: driveDirection,
-                range: Math.abs(leftEncoderDeltaCm),
+                range: Math.abs(leftEncoderTotalCm),
                 time: new Date(),//msToTime(elapsedTimeInMs),
                 start: driveStartDate
             };
             driveData.push(newData)
-            //console.log("DoubleRoboticsProxy.drive | driveDirection:" + driveDirection + " | leftEncoderDeltaCm: " + leftEncoderDeltaCm + " | elapsedTimeInMs: " + elapsedTimeInMs);// + " (" + new Date().toISOString() + ")");
+            //console.log("DoubleRoboticsProxy.drive | driveDirection:" + driveDirection + " | leftEncoderTotalCm: " + leftEncoderTotalCm + " | elapsedTimeInMs: " + elapsedTimeInMs);// + " (" + new Date().toISOString() + ")");
             var cmPerInches = 2.54;
             var travelData = {
-                leftEncoderDeltaInches: leftEncoderDeltaCm / cmPerInches,
-                rightEncoderDeltaInches: rightEncoderDeltaCm / cmPerInches,
-                leftEncoderDeltaCm: leftEncoderDeltaCm,
-                rightEncoderDeltaCm: rightEncoderDeltaCm,
+                leftEncoderTotalInches: leftEncoderTotalCm / cmPerInches,
+                rightEncoderTotalInches: rightEncoderTotalCm / cmPerInches,
+                leftEncoderTotalCm: leftEncoderTotalCm,
+                rightEncoderTotalCm: rightEncoderTotalCm,
                 driveData: driveData,
                 lastDrive: newData
             };
@@ -89,8 +89,8 @@ function DoubleRoboticsProxy() {
             }
             if (travelDataCallback && typeof travelDataCallback === "function")
                 travelDataCallback(travelData);
-            if (rangeInCm && Math.abs(leftEncoderDeltaCm) >= rangeInCm) {
-                console.log("DoubleRoboticsProxy.stop => rangeInCm >= " + rangeInCm + " | leftEncoderDeltaCm: " + leftEncoderDeltaCm);// + " (" + new Date
+            if (rangeInCm && Math.abs(leftEncoderTotalCm) >= rangeInCm) {
+                console.log("DoubleRoboticsProxy.stop => rangeInCm >= " + rangeInCm + " | leftEncoderTotalCm: " + leftEncoderTotalCm);// + " (" + new Date
                 clearInterval(driveIntervalId);
             }
         }, 200);
