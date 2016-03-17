@@ -15,7 +15,7 @@ function DoubleRobotics() {
             batterystatus: cordova.addWindowEventHandler(EVENT_BATTERYSTATUS),
             batterylow: cordova.addWindowEventHandler(EVENT_BATTERYLOW),
             batterycritical: cordova.addWindowEventHandler(EVENT_BATTERYCRITICAL),
-            traveldata: cordova.addWindowEventHandler(EVENT_TRAVELDATA),
+            traveldata: channel.create(EVENT_TRAVELDATA),
             collision: channel.create(EVENT_COLLISION)
         };
     for (var key in _channels) {
@@ -75,9 +75,7 @@ function DoubleRobotics() {
      * @param {Object} traveldata            keys: leftEncoderTotalInches, rightEncoderTotalInches, avgEncoderTotalInches, leftEncoderTotalCm, rightEncoderTotalCm, avgEncoderTotalCm
      */
     function _traveldataCallback(travelData) {
-        if (travelData) {
-            cordova.fireWindowEvent(EVENT_TRAVELDATA, travelData);
-        }
+        _channels[EVENT_TRAVELDATA].fire(travelData);
     }
 
     /**
@@ -143,6 +141,12 @@ function DoubleRobotics() {
     /* DoubleRobotics Commands: */
 
     /* Event Listeners: */
+    this.watchTravelData = function (listener) {
+      _addEventListener(EVENT_TRAVELDATA, listener);
+    };
+    this.clearWatchTravelData = function(listener) {
+      _removeEventListener(EVENT_TRAVELDATA, listener);
+    };
     this.watchCollision = function (listener) {
       _addEventListener(EVENT_COLLISION, listener);
     };
