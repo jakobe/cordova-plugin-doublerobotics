@@ -72,7 +72,7 @@ function DoubleRobotics() {
     /**
      * Callback for robot traveldata
      *
-     * @param {Object} traveldata            keys: leftEncoderDeltaInches, rightEncoderDeltaInches, avgEncoderDeltaInches, leftEncoderDeltaCm, rightEncoderDeltaCm, avgEncoderDeltaCm
+     * @param {Object} traveldata            keys: leftEncoderTotalInches, rightEncoderTotalInches, avgEncoderTotalInches, leftEncoderTotalCm, rightEncoderTotalCm, avgEncoderTotalCm
      */
     function _traveldataCallback(travelData) {
         if (travelData) {
@@ -83,7 +83,7 @@ function DoubleRobotics() {
     /**
      * Callback for robot collision
      *
-     * @param {Object} collisionData            keys: leftEncoderDeltaInches, rightEncoderDeltaInches, leftEncoderDeltaCm, rightEncoderDeltaCm
+     * @param {Object} collisionData            keys: direction, force
      */
     function _collisionCallback(collisionData) {
       var collisionDetails = {

@@ -24,12 +24,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     var currentTurn:Float = 0.0;
     var currentRangeInCm:Float = 0.0;
     var currentTurnByDegrees:Float = 0.0;
-    var leftEncoderDeltaInches:Float = 0.0;
-    var rightEncoderDeltaInches:Float = 0.0;
-    var avgEncoderDeltaInches:Float = 0.0;
-    var leftEncoderDeltaCm:Float = 0.0;
-    var rightEncoderDeltaCm:Float = 0.0;
-    var avgEncoderDeltaCm:Float = 0.0;
+    var leftEncoderTotalInches:Float = 0.0;
+    var rightEncoderTotalInches:Float = 0.0;
+    var avgEncoderTotalInches:Float = 0.0;
+    var leftEncoderTotalCm:Float = 0.0;
+    var rightEncoderTotalCm:Float = 0.0;
+    var avgEncoderTotalCm:Float = 0.0;
     var statusCallbackId:String?;
     var travelDataCallbackId:String?;
     var collisionCallbackId:String?;
@@ -176,7 +176,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func hasReachedCurrentRange() -> Bool {
-        return currentRangeInCm > 0 && abs(avgEncoderDeltaCm) >= currentRangeInCm
+        return currentRangeInCm > 0 && abs(avgEncoderTotalCm) >= currentRangeInCm
     }
 
     func doubleDriveShouldUpdate(theDouble:DRDouble) {
@@ -195,12 +195,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
             let deaccelerateEnd:Float = drive > 0.5 ? 40 : 20
             let deaccelerateRange = deaccelerateStart - deaccelerateEnd
 
-            let remainingRange = currentRangeInCm - abs(avgEncoderDeltaCm)
+            let remainingRange = currentRangeInCm - abs(avgEncoderTotalCm)
 
             if (remainingRange < deaccelerateEnd) {
                 if (currentDriveDirection != 0.0) {
                     stop()
-                    NSLog("*** STOP - avgEncoderDeltaCm: \(avgEncoderDeltaCm) | drive: \(drive) ***")
+                    NSLog("*** STOP - avgEncoderTotalCm: \(avgEncoderTotalCm) | drive: \(drive) ***")
                     drive = 0.0
                 }
             } else if (remainingRange < deaccelerateStart) {
@@ -214,7 +214,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         }
 
         if (drive != 0.0 || turn != 0.0) {
-            //NSLog("*** avgEncoderDeltaCm: \(avgEncoderDeltaCm) | leftEncoderDeltaCm: \(leftEncoderDeltaCm) | rightEncoderDeltaCm: \(rightEncoderDeltaCm) | drive: \(drive) ***")
+            //NSLog("*** avgEncoderTotalCm: \(avgEncoderTotalCm) | leftEncoderTotalCm: \(leftEncoderTotalCm) | rightEncoderTotalCm: \(rightEncoderTotalCm) | drive: \(drive) ***")
             theDouble.variableDrive(drive, turn: turn)
             snapDriveData(drive)
         } else if (currentTurnByDegrees != 0.0) {
@@ -230,38 +230,36 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
         updateState()
 
-        //TODO: Delete "SinceLastUpdate"
-        let leftEncoderDeltaInchesSinceLastUpdate = theDouble.leftEncoderDeltaInches
-        let rightEncoderDeltaInchesSinceLastUpdate = theDouble.rightEncoderDeltaInches
-        let avgEncoderDeltaInchesSinceLastUpdate = (leftEncoderDeltaInchesSinceLastUpdate + rightEncoderDeltaInchesSinceLastUpdate) / 2.0
+        let leftEncoderDeltaInches = theDouble.leftEncoderDeltaInches
+        let rightEncoderDeltaInches = theDouble.rightEncoderDeltaInches
+        let avgEncoderDeltaInches = (leftEncoderDeltaInches + rightEncoderDeltaInches) / 2.0
 
-        //TODO: Delete "Delta" from left|right|avgEncoderDeltaInches
-        leftEncoderDeltaInches = leftEncoderDeltaInches + leftEncoderDeltaInchesSinceLastUpdate
-        rightEncoderDeltaInches = rightEncoderDeltaInches + rightEncoderDeltaInchesSinceLastUpdate
-        avgEncoderDeltaInches = (leftEncoderDeltaInches + rightEncoderDeltaInches) / 2.0
-        leftEncoderDeltaCm = leftEncoderDeltaInches * cmPerInches
-        rightEncoderDeltaCm = rightEncoderDeltaInches * cmPerInches
-        avgEncoderDeltaCm = (leftEncoderDeltaCm + rightEncoderDeltaCm) / 2.0
+        leftEncoderTotalInches = leftEncoderTotalInches + leftEncoderDeltaInches
+        rightEncoderTotalInches = rightEncoderTotalInches + rightEncoderDeltaInches
+        avgEncoderTotalInches = (leftEncoderTotalInches + rightEncoderTotalInches) / 2.0
+        leftEncoderTotalCm = leftEncoderTotalInches * cmPerInches
+        rightEncoderTotalCm = rightEncoderTotalInches * cmPerInches
+        avgEncoderTotalCm = (leftEncoderTotalCm + rightEncoderTotalCm) / 2.0
 
-        if (drivingOrRolling && abs(avgEncoderDeltaCm) > collisionMinimumRangeThreshold) {
-            //NSLog("*** leftEncoderDeltaInches: \(theDouble.leftEncoderDeltaInches) ***")
+        if (drivingOrRolling && abs(avgEncoderTotalCm) > collisionMinimumRangeThreshold) {
+            //NSLog("*** avgEncoderTotalInches: \(avgEncoderTotalInches) ***")
             if (collisionDirection == 0.0) {
-                if ((drive > 0 && avgEncoderDeltaInchesSinceLastUpdate < 0) ||
-                    (drive < 0 && avgEncoderDeltaInchesSinceLastUpdate > 0)) {
-                        updateCollision(drive, deltaInches: avgEncoderDeltaInchesSinceLastUpdate);
-                        collisionDirection = avgEncoderDeltaInchesSinceLastUpdate
+                if ((drive > 0 && avgEncoderDeltaInches < 0) ||
+                    (drive < 0 && avgEncoderDeltaInches > 0)) {
+                        updateCollision(drive, deltaInches: avgEncoderDeltaInches);
+                        collisionDirection = avgEncoderDeltaInches
                 }
-            } else if ((collisionDirection < 0 && avgEncoderDeltaInchesSinceLastUpdate > 0) ||
-                collisionDirection > 0 && avgEncoderDeltaInchesSinceLastUpdate < 0) {
+            } else if ((collisionDirection < 0 && avgEncoderDeltaInches > 0) ||
+                collisionDirection > 0 && avgEncoderDeltaInches < 0) {
                     //Reset collision detection:
                     collisionDirection = 0.0
             }
         }
 
         if (state == .Rolling) {
-            NSLog("*** avgEncoderDeltaCm: \(avgEncoderDeltaCm) ***")
-            if (abs(avgEncoderDeltaCm) > rangePeak) {
-                rangePeak = abs(avgEncoderDeltaCm)
+            NSLog("*** avgEncoderTotalCm: \(avgEncoderTotalCm) ***")
+            if (abs(avgEncoderTotalCm) > rangePeak) {
+                rangePeak = abs(avgEncoderTotalCm)
                 //NSLog("*** rangePeak: \(rangePeak) ***")
                 snapDriveData(drive)
             } else {
@@ -271,7 +269,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         } else if (state == .Balancing) {
             //TODO: If travelData > pushThreshold => raisePushEvent!
         }
-        if (self.drivingOrRolling && (leftEncoderDeltaInches != 0.0 || rightEncoderDeltaInches != 0.0)) {
+        if (self.drivingOrRolling && (leftEncoderTotalInches != 0.0 || rightEncoderTotalInches != 0.0)) {
             updateTravelData()
         }
     }
@@ -279,12 +277,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     func updateTravelData() {
         if (self.travelDataCallbackId != nil && !self.travelDataCallbackId!.isEmpty) {
             let data: [String : AnyObject] = [
-                "leftEncoderDeltaInches" : leftEncoderDeltaInches,
-                "rightEncoderDeltaInches" : rightEncoderDeltaInches,
-                "avgEncoderDeltaInches" : avgEncoderDeltaInches,
-                "leftEncoderDeltaCm" : leftEncoderDeltaCm,
-                "rightEncoderDeltaCm" : rightEncoderDeltaCm,
-                "avgEncoderDeltaCm" : avgEncoderDeltaCm,
+                "leftEncoderTotalInches" : leftEncoderTotalInches,
+                "rightEncoderTotalInches" : rightEncoderTotalInches,
+                "avgEncoderTotalInches" : avgEncoderTotalInches,
+                "leftEncoderTotalCm" : leftEncoderTotalCm,
+                "rightEncoderTotalCm" : rightEncoderTotalCm,
+                "avgEncoderTotalCm" : avgEncoderTotalCm,
                 "driveData" : driveData,
                 "lastDrive" : lastDrive
             ]
@@ -342,8 +340,8 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     func snapDriveData(speed:Float) {
         //let elapsedTime = NSDate().timeIntervalSinceDate(driveStartDate)
-        lastDrive = ["speed" : speed, "range" : abs(avgEncoderDeltaCm), "time" : stringFromNSDate(NSDate()), "start": stringFromNSDate(driveStartDate)]
-        //self.driveData.append(["speed" : speed, "range" : abs(avgEncoderDeltaCm), "time" : elapsedTime])
+        lastDrive = ["speed" : speed, "range" : abs(avgEncoderTotalCm), "time" : stringFromNSDate(NSDate()), "start": stringFromNSDate(driveStartDate)]
+        //self.driveData.append(["speed" : speed, "range" : abs(avgEncoderTotalCm), "time" : elapsedTime])
     }
 
     func stringFromTimeInterval(interval:NSTimeInterval) -> NSString {
@@ -364,12 +362,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     func startTravelData() {
         DRDouble.sharedDouble().stopTravelData()
-        leftEncoderDeltaInches = 0.0
-        rightEncoderDeltaInches = 0.0
-        avgEncoderDeltaCm = 0.0
-        leftEncoderDeltaCm = 0.0
-        rightEncoderDeltaCm = 0.0
-        avgEncoderDeltaCm = 0.0
+        leftEncoderTotalInches = 0.0
+        rightEncoderTotalInches = 0.0
+        avgEncoderTotalCm = 0.0
+        leftEncoderTotalCm = 0.0
+        rightEncoderTotalCm = 0.0
+        avgEncoderTotalCm = 0.0
         collisionDirection = 0.0
         DRDouble.sharedDouble().startTravelData()
     }
