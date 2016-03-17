@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
     id="cordova-plugin-doublerobotics"
-    version="0.2.0">
+    version="0.3.0">
     <name>DoubleRobotics</name>
-    <description>Cordova iOS plugin exposing the full DoubleRobotics SDK</description>
+    <description>Cordova iOS plugin wrapping DoubleRobotics SDK</description>
     <author>Jakob Engelbrecht Olesen @ basher.dk.</author>
     <engines>
         <engine name="cordova-ios" version=">=3.8.0" />
