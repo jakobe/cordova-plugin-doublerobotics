@@ -1,5 +1,6 @@
 function DoubleRoboticsProxy() {
     var travelDataCallback,
+        collisionCallback,
         driveIntervalId,
         leftEncoderDeltaCm,
         rightEncoderDeltaCm,
@@ -79,9 +80,12 @@ function DoubleRoboticsProxy() {
                 lastDrive: newData
             };
             if (driveCounter === 10) {
-              travelData.collisionDetected = true;
-              travelData.collisionDirection = 'forward';
-              travelData.collisionForce = 10.0;
+              if (collisionCallback && typeof collisionCallback === "function") {
+                collisionCallback({
+                  direction: 'back',
+                  force: 20
+                });
+              }
             }
             if (travelDataCallback && typeof travelDataCallback === "function")
                 travelDataCallback(travelData);
@@ -111,9 +115,28 @@ function DoubleRoboticsProxy() {
         console.log("DoubleRoboticsProxy.startStatusListener()");
     }
 
+    this.stopStatusListener = function (success, fail) {
+        console.log("DoubleRoboticsProxy.stopStatusListener()");
+    }
+
     this.startTravelDataListener = function (success, fail) {
         console.log("DoubleRoboticsProxy.startTravelDataListener()");
         travelDataCallback = success;
+    }
+
+    this.stopTravelDataListener = function (success, fail) {
+        console.log("DoubleRoboticsProxy.stopTravelDataListener()");
+        travelDataCallback = null;
+    }
+
+    this.startCollisionListener = function (success, fail) {
+        console.log("DoubleRoboticsProxy.startCollisionListener()");
+        collisionCallback = success;
+    }
+
+    this.stopCollisionListener = function (success, fail) {
+        console.log("DoubleRoboticsProxy.stopCollisionListener()");
+        travelDataCallback = null;
     }
 
     function msToTime(duration) {
