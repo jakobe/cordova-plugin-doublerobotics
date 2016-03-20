@@ -304,7 +304,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func updateStatus() {
-        if (self.statusCallbackId != nil && self.statusCallbackId!.isEmpty) {
+        if (self.statusCallbackId != nil && !self.statusCallbackId!.isEmpty) {
             let sharedDouble = DRDouble.sharedDouble()
             let data: [String : AnyObject] = [
                 "batteryPercent" : sharedDouble.batteryPercent,
@@ -321,7 +321,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func updateCollision(drive:Float, deltaInches:Float) {
-        if (self.collisionCallbackId != nil && self.collisionCallbackId!.isEmpty) {
+        if (self.collisionCallbackId != nil && !self.collisionCallbackId!.isEmpty) {
             var collisionDirection = "unknown"
             if (drive > 0 && deltaInches < 0) {
                 collisionDirection = "back"
