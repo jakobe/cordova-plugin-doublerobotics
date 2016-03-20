@@ -102,24 +102,34 @@ function DoubleRobotics() {
 
     function onHasSubscribersChange() {
         try {
-            // If we just registered the first handler, make sure native listener is started.
-            if (this.numHandlers === 1 && statusHandlers() === 1) {
-                cordova.exec(_statusCallback, _error, DOUBLEROBOTICS, 'startStatusListener', []);
-            } else if (statusHandlers() === 0) {
-                cordova.exec(null, null, DOUBLEROBOTICS, 'stopStatusListener', []);
-            }
-            // If we just registered the first handler, make sure native listener is started.
-            if (this.numHandlers === 1 && travelDataHandlers() === 1) {
-                cordova.exec(_traveldataCallback, _error, DOUBLEROBOTICS, 'startTravelDataListener', []);
-            } else if (travelDataHandlers() === 0) {
-                cordova.exec(null, null, DOUBLEROBOTICS, 'stopTravelDataListener', []);
-            }
-            // If we just registered the first handler, make sure native listener is started.
-            if (this.numHandlers === 1 && collisionHandlers() === 1) {
-                cordova.exec(_collisionCallback, _error, DOUBLEROBOTICS, 'startCollisionListener', []);
-            } else if (collisionHandlers() === 0) {
-                cordova.exec(null, null, DOUBLEROBOTICS, 'stopCollisionListener', []);
-            }
+          switch (this.type) {
+            case EVENT_BATTERYSTATUS:
+            case EVENT_BATTERYLOW:
+            case EVENT_BATTERYCRITICAL:
+              // If we just registered the first handler, make sure native listener is started.
+              if (this.numHandlers === 1 && statusHandlers() === 1) {
+                  cordova.exec(_statusCallback, _error, DOUBLEROBOTICS, 'startStatusListener', []);
+              } else if (statusHandlers() === 0) {
+                  cordova.exec(null, null, DOUBLEROBOTICS, 'stopStatusListener', []);
+              }
+              break;
+            case EVENT_TRAVELDATA:
+              // If we just registered the first handler, make sure native listener is started.
+              if (this.numHandlers === 1 && travelDataHandlers() === 1) {
+                  cordova.exec(_traveldataCallback, _error, DOUBLEROBOTICS, 'startTravelDataListener', []);
+              } else if (travelDataHandlers() === 0) {
+                  cordova.exec(null, null, DOUBLEROBOTICS, 'stopTravelDataListener', []);
+              }
+              break;
+            case EVENT_COLLISION:
+              // If we just registered the first handler, make sure native listener is started.
+              if (this.numHandlers === 1 && collisionHandlers() === 1) {
+                  cordova.exec(_collisionCallback, _error, DOUBLEROBOTICS, 'startCollisionListener', []);
+              } else if (collisionHandlers() === 0) {
+                  cordova.exec(null, null, DOUBLEROBOTICS, 'stopCollisionListener', []);
+              }
+            default:
+          }
         }
         catch (err) {
             alert('Error! => ' + err);
