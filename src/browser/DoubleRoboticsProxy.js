@@ -92,12 +92,20 @@ function DoubleRoboticsProxy() {
             if (rangeInCm && Math.abs(leftEncoderTotalCm) >= rangeInCm) {
                 console.log("DoubleRoboticsProxy.stop => rangeInCm >= " + rangeInCm + " | leftEncoderTotalCm: " + leftEncoderTotalCm);// + " (" + new Date
                 clearInterval(driveIntervalId);
+                if (rangeInCm && rangeInCm > 0) {
+                  if (typeof success === "function") {
+                    success({ serial: "00-00FAKE", message: "Fake Robot..." });
+                  }
+                }
+
             }
         }, 200);
-        if (typeof success === "function") {
-            setTimeout(function () {
-                success({ serial: "00-00FAKE", message: "Fake Robot..." });
-            }, 0);
+        if (!rangeInCm || rangeInCm === 0) {
+          if (typeof success === "function") {
+              setTimeout(function () {
+                  success({ serial: "00-00FAKE", message: "Fake Robot..." });
+              }, 0);
+          }
         }
     }
     this.turnByDegrees = function (success, fail, arguments) {
