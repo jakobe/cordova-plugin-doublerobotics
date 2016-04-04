@@ -12,8 +12,10 @@ enum RobotState {
     case Unknown
     case Parked
     case Balancing
+    case Starting
     case Driving
     case Rolling
+    case Stopping
     case Recovering
 }
 
@@ -22,13 +24,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     var currentDrive:Float = 0.0;
     var currentTurn:Float = 0.0;
+    var driveDirection:DRDriveDirection = .Stop;
     var currentDirection:DRDriveDirection = .Stop;
     var currentSpeed:Float = 0.0;
     var currentSpeedInCmPerSecond:Float = 0.0;
-    var currentSpeedInCmPerSecondPer100Ms:Float = 0.0;
     var currentRangeInCm:Float = 0.0;
     var currentTurnByDegrees:Float = 0.0;
-    var lastAvgEncoderDeltaInches:Float = 0.0;
     var leftEncoderTotalInches:Float = 0.0;
     var rightEncoderTotalInches:Float = 0.0;
     var avgEncoderTotalInches:Float = 0.0;
@@ -44,13 +45,11 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     var collisionDirection:Float = 0.0;
     var state = RobotState.Unknown;
     var previousState = RobotState.Unknown;
-    var driveData:[[String : AnyObject]] = [[String : AnyObject]]();
 
     override func pluginInitialize() {
         super.pluginInitialize()
         NSLog("******** CDVDoubleRobotics instantiated... *******")
         driveStartDate = NSDate()
-        driveData = [[String : AnyObject]]();
         collisionDirection = 0.0
         DRDouble.sharedDouble().delegate = self
     }
@@ -83,18 +82,26 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         self.collisionCallbackId = nil;
     }
 
+    var nextDriveDirection:DRDriveDirection = .Stop
+
     func drive(command: CDVInvokedUrlCommand) {
         rangePeak = 0.0
-        let driveDirection = command.arguments[0] as! Float
+        let drive = command.arguments[0] as! Float
         let turn = command.arguments[1] as! Float
         let rangeInCm = command.arguments[2] as! Float
 
-        currentDrive = driveDirection
+        currentDrive = drive
+        currentSpeed = drive
         currentTurn = turn
         currentRangeInCm = rangeInCm
-        currentDirection = driveDirection > 0 ? .Forward : .Backward
 
-        if (self.state == .Balancing || self.state == .Rolling) {
+        nextDriveDirection = drive > 0 ? .Forward : .Backward
+        if (driveDirection == .Stop) {
+          driveDirection = nextDriveDirection
+          nextDriveDirection = .Stop
+        }
+
+        if (self.state == .Balancing || self.state == .Starting || self.state == .Rolling) {
             startTravelData()
         }
 
@@ -195,9 +202,6 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         //     stop()
         //     NSLog("*** hasReachedCurrentRange ***")
         // }
-
-        currentSpeed = calculateSpeed();
-
         if (currentSpeed == 0.0 && currentDrive != 0.0) {
             stop()
             NSLog("*** STOP - avgEncoderTotalCm: \(avgEncoderTotalCm) | currentSpeed: \(currentSpeed) ***")
@@ -236,187 +240,112 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
       return speed
     }
 
-    var travelDataCounter:Float = 0.0;
-    var travelDataStartTime = NSDate();
-    var travelDataEndTime = NSDate();
-    var travelDataEnded = false;
     var detectCollision = false;
     var deaccelerationCount = 0;
 
     func doubleTravelDataDidUpdate(theDouble: DRDouble!) {
         let cmPerInches:Float = 2.54;
-        //Allow 250 ms between speed samples:
-        let speedMeasureIntervalInSeconds:Float = 0.15;
-
-        updateState()
 
         let leftEncoderDeltaInches = theDouble.leftEncoderDeltaInches
         let rightEncoderDeltaInches = theDouble.rightEncoderDeltaInches
         let avgEncoderDeltaInches = (leftEncoderDeltaInches + rightEncoderDeltaInches) / 2.0
 
-        leftEncoderTotalInches = leftEncoderTotalInches + leftEncoderDeltaInches
-        rightEncoderTotalInches = rightEncoderTotalInches + rightEncoderDeltaInches
+        leftEncoderTotalInches += leftEncoderDeltaInches
+        rightEncoderTotalInches += rightEncoderDeltaInches
         avgEncoderTotalInches = (leftEncoderTotalInches + rightEncoderTotalInches) / 2.0
+
         leftEncoderTotalCm = leftEncoderTotalInches * cmPerInches
         rightEncoderTotalCm = rightEncoderTotalInches * cmPerInches
         avgEncoderTotalCm = avgEncoderTotalInches * cmPerInches
 
-        if (self.drivingOrRolling) {
-          let speedInCmPerSecondPer100Ms:Float = ((avgEncoderDeltaInches * cmPerInches) / 100) * 1000
-          if (state == .Rolling) {
-            if (detectCollision == true) {
-              if ((speedInCmPerSecondPer100Ms > 0 && speedInCmPerSecondPer100Ms < 10 && speedInCmPerSecondPer100Ms < currentSpeedInCmPerSecondPer100Ms) ||
-                  (speedInCmPerSecondPer100Ms < 0 && speedInCmPerSecondPer100Ms > -10 && speedInCmPerSecondPer100Ms > currentSpeedInCmPerSecondPer100Ms)) {
-                deaccelerationCount += 1
-                if (deaccelerationCount >= 3) {
-                  detectCollision = false
-                }
-              }
-            }
-          }
-          currentSpeedInCmPerSecondPer100Ms = speedInCmPerSecondPer100Ms
-          if ((currentDirection == .Forward && avgEncoderTotalInches < 0) ||
-              (currentDirection == .Backward && avgEncoderTotalInches > 0)) {
-                detectCollision = false
-          } else if ((avgEncoderTotalInches > 0 && currentSpeedInCmPerSecondPer100Ms > 10) ||
-              (avgEncoderTotalInches < 0 && currentSpeedInCmPerSecondPer100Ms < -10)) {
-            detectCollision = true
-          }
+        currentSpeed = calculateSpeed()
+
+        if (self.isMoving) {
+          currentDirection = avgEncoderDeltaInches > 0 ? .Forward : .Backward
+          let previousSpeedInCmPerSecond = currentSpeedInCmPerSecond
+          currentSpeedInCmPerSecond = ((avgEncoderDeltaInches * cmPerInches) / 100) * 1000
+          updateState()
+          detectDeacceleration(currentSpeedInCmPerSecond, previousSpeedInCmPerSecond:previousSpeedInCmPerSecond)
         } else {
-          currentSpeedInCmPerSecondPer100Ms = 0.0
+          driveDirection = .Stop
+          currentDirection = .Stop
+          nextDriveDirection = .Stop
+          currentSpeedInCmPerSecond = 0.0
           detectCollision = false
           deaccelerationCount = 0
         }
 
-        detectCollision(avgEncoderTotalInches, wheelDirection:avgEncoderDeltaInches)
-        lastAvgEncoderDeltaInches = avgEncoderDeltaInches
+        detectCollision(avgEncoderDeltaInches)
 
-
-        if (self.drivingOrRolling) {// && abs(avgEncoderTotalCm) > 5.0) {
-
-          if (avgEncoderTotalCm < 100) {
-            travelDataCounter = 0.0;
-            travelDataEnded = false;
-          }
-          if (avgEncoderTotalCm > 100 && avgEncoderTotalCm < 200) {
-            if (travelDataCounter == 0) {
-              travelDataStartTime = NSDate()
-            }
-            travelDataCounter += 1.0;
-          } else if (avgEncoderTotalCm > 200 && !travelDataEnded) {
-            travelDataEndTime = NSDate()
-            let elapsedTravelDataTimeInMs = Float(travelDataEndTime.timeIntervalSinceDate(travelDataStartTime)) * 1000
-            let averageTravelDataTimeInMs = elapsedTravelDataTimeInMs / travelDataCounter
-
-            NSLog(" XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-            NSLog(" XXX range: \(avgEncoderTotalCm) cm - travelDataCounter: \(travelDataCounter) - elapsed: \(elapsedTravelDataTimeInMs) ms - averageTravelDataTime: \(averageTravelDataTimeInMs) ms")
-            NSLog(" XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-            travelDataEnded = true
-          }
-          var startTime = driveStartDate
-          let currentTime = NSDate()
-          let currentRange = abs(avgEncoderTotalCm)
-          var rangeInCm = currentRange
-          var new = [
-              "avgEncoderTotalCm" : currentRange,
-              "time" : currentTime
-          ]
-          if let last = driveData.last {
-            let startRange:Float = last["avgEncoderTotalCm"] as! Float
-            rangeInCm = currentRange - startRange
-            startTime = last["time"] as! NSDate
-          }
-          let elapsedTimeInSeconds = Float(currentTime.timeIntervalSinceDate(startTime))
-
-          if (elapsedTimeInSeconds > speedMeasureIntervalInSeconds) {
-            let speedInCmPerSecond:Float = rangeInCm / elapsedTimeInSeconds
-            new["speed"] = speedInCmPerSecond
-            driveData.append(new)
-            currentSpeedInCmPerSecond = speedInCmPerSecond
-            //NSLog(" *** range: \(abs(avgEncoderTotalCm)) - elapsed: \(elapsedTimeInSeconds) - current speed: \(speedInCmPerSecond) cm/s")
-            // if (driveData.count > 3) {
-            //     driveData.removeAtIndex(0)
-            //     var totalItems:Float = 0.0
-            //     var totalSpeed:Float = 0.0
-            //     for item in driveData {
-            //         totalItems++;
-            //         totalSpeed += item["speed"] as! Float
-            //     }
-            //     let avgSpeed = totalSpeed / totalItems
-            //     NSLog(" *** range: \(abs(avgEncoderTotalCm)) - avg speed: \(avgSpeed) cm/s - new speed: \(new["speed"] as! Float) cm/s")
-            // } else {
-            //   NSLog(" *** range: \(abs(avgEncoderTotalCm)) - avg speed: 0.000 cm/s - new speed: \(new["speed"] as! Float) cm/s")
-            // }
-            //NSLog(" *** range: \(abs(avgEncoderTotalCm)) - delta: \(avgEncoderDeltaInches) - speed: \(new["speed"] as! Float) cm/s - collisionDirection: \(collisionDirection)")
-          }
-          //if (currentSpeedInCmPerSecond < 15 || collisionDirection != 0.0) {
-          //NSLog(" *** elapsed: \(elapsedTimeInSeconds * 1000)")
-          NSLog(" *** range: \(avgEncoderTotalCm) cm - delta: \(avgEncoderDeltaInches) inch - drive: \(currentSpeed) - speed: \(currentSpeedInCmPerSecondPer100Ms) cm/s - detect: \(detectCollision) - deacc.count: \(deaccelerationCount)")
-          //}
-
+        if (self.isMoving) {
+          NSLog(" *** range: \(avgEncoderTotalCm) cm - ∆: \(avgEncoderDeltaInches) inch - drive: \(currentSpeed) - speed: \(currentSpeedInCmPerSecond) cm/s - detect: \(detectCollision) - deacc.count: \(deaccelerationCount) - dir: \(directionToArrow(driveDirection))\(directionToArrow(currentDirection)) next: \(directionToArrow(nextDriveDirection))")
         }
 
-
-        if (state == .Rolling) {
-            //NSLog("*** avgEncoderTotalCm: \(avgEncoderTotalCm) ***")
-            // if (abs(avgEncoderTotalCm) > rangePeak) {
-            //     rangePeak = abs(avgEncoderTotalCm)
-            //     //NSLog("*** rangePeak: \(rangePeak) ***")
-            //} else if (collisionDirection == 0.0) {
-            if (((avgEncoderTotalInches > 0 && avgEncoderDeltaInches < 0) ||
-                (avgEncoderTotalInches < 0 && avgEncoderDeltaInches > 0))
-                && collisionDirection == 0.0) {
-                //DRDouble.sharedDouble().stopTravelData()
-                updateState(.Balancing)
-                currentDirection = .Stop
-                if (currentRangeInCm > 0) {
-                   NSLog("About to sendDriveRangeSuccess... state: \(state)")
-                   sendDriveRangeSuccess()
-                }
-            }
-        }
         if (self.drivingOrRolling && (leftEncoderTotalInches != 0.0 || rightEncoderTotalInches != 0.0)) {
             //NSLog("***  doubleTravelDataDidUpdate - avgEncoderTotalCm: \(avgEncoderTotalCm) ***")
             updateTravelData()
         }
     }
 
-    func detectCollision(driveDirection:Float, wheelDirection:Float) {
-      let collisionMinimumRangeThreshold:Float = 5.0;
-      let collisionMinimumSpeedThreshold:Float = 10;
-      if (self.drivingOrRolling) { // && abs(avgEncoderTotalCm) > collisionMinimumRangeThreshold) {
-      //if (self.drivingOrRolling) {
-          //NSLog("*** avgEncoderTotalInches: \(avgEncoderTotalInches) ***")
+    func detectDeacceleration(currentSpeedInCmPerSecond:Float, previousSpeedInCmPerSecond:Float) {
+      if (state == .Rolling && currentDirection == driveDirection) {
+        if (abs(currentSpeedInCmPerSecond) > 0 && abs(currentSpeedInCmPerSecond) < 10 && abs(currentSpeedInCmPerSecond) < abs(previousSpeedInCmPerSecond)) {
+          deaccelerationCount += 1
+          if (deaccelerationCount >= 3) {
+            updateState(.Stopping)
+          }
+        }
+      }
+      if (self.drivingOrRolling && currentDirection != driveDirection && driveDirection != nextDriveDirection && nextDriveDirection != .Stop) {
+        NSLog("Switching drive direction...")
+        driveDirection = nextDriveDirection
+        nextDriveDirection = .Stop
+      }
+    }
+
+    func detectCollision(wheelDirection:Float) {
+      if (self.drivingOrRolling) {
           if (collisionDirection == 0.0) {
-              //if (currentSpeedInCmPerSecond > collisionMinimumSpeedThreshold ) {
-              if (detectCollision) {
-                let directionChange = detectDirectionChange(driveDirection, wheelDirection: wheelDirection)
-                if (!directionChange.isEmpty) {
-                    NSLog("Collision detected - direction: \(directionChange) - speed: \(currentSpeedInCmPerSecond)")
-                    updateCollision(directionChange, force: wheelDirection);
-                    collisionDirection = wheelDirection
-                    detectCollision = false
-                }
-              }
+            detectCollision = true
+            if (currentDirection != driveDirection) {
+              let collisionDirectionAsString = directionToString(currentDirection)
+              NSLog("Collision detected - direction: \(collisionDirectionAsString) - speed: \(currentSpeedInCmPerSecond)")
+              updateCollision(collisionDirectionAsString, force: wheelDirection);
+              collisionDirection = wheelDirection
+              detectCollision = false
+            }
           } else if ((collisionDirection < 0 && wheelDirection > 0) ||
                      (collisionDirection > 0 && wheelDirection < 0)) {
                   //Reset collision detection:
                   NSLog("Resetting collision direction...")
                   collisionDirection = 0.0
+                  detectCollision = true
           }
       } else if (state == .Balancing) {
           //TODO: If travelData > pushThreshold => raisePushEvent!
+      } else {
+        detectCollision = false
       }
     }
 
-    func detectDirectionChange(driveDirection:Float, wheelDirection:Float) -> String {
-      var direction = ""
-      if (driveDirection > 0 && wheelDirection < 0) {
-        direction = "back"
-      } else if (driveDirection < 0 && wheelDirection > 0) {
-        direction = "forward"
+    func directionToString(direction:DRDriveDirection) -> String {
+      var directionAsString = ""
+      if (direction == .Forward) {
+        directionAsString = "forward"
+      } else if (direction == .Backward) {
+        directionAsString = "back"
       }
-      return direction
+      return directionAsString
+    }
+
+    func directionToArrow(direction:DRDriveDirection) -> String {
+      var directionAsString = "-"
+      if (direction == .Forward) {
+        directionAsString = ">"
+      } else if (direction == .Backward) {
+        directionAsString = "<"
+      }
+      return directionAsString
     }
 
     func sendDriveRangeSuccess() {
@@ -460,7 +389,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         updateStatus()
         // NSLog("*** poleHeightPercent: \(DRDouble.sharedDouble().poleHeightPercent) ***")
         // NSLog("*** kickstandState: \(DRDouble.sharedDouble().kickstandState) ***")
-        // NSLog("*** batteryPercent: \(DRDouble.sharedDouble().batteryPercent) ***")
+        NSLog("*** batteryPercent: \(DRDouble.sharedDouble().batteryPercent) ***")
         // NSLog("*** batteryIsFullyCharged: \(DRDouble.sharedDouble().batteryIsFullyCharged) ***")
         // NSLog("*** firmwareVersion: \(DRDouble.sharedDouble().firmwareVersion) ***")
     }
@@ -513,18 +442,15 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     func startTravelData() {
         DRDouble.sharedDouble().stopTravelData()
-        lastAvgEncoderDeltaInches = 0.0
         leftEncoderTotalInches = 0.0
         rightEncoderTotalInches = 0.0
         avgEncoderTotalCm = 0.0
         leftEncoderTotalCm = 0.0
         rightEncoderTotalCm = 0.0
         avgEncoderTotalCm = 0.0
-        collisionDirection = 0.0
         driveStartDate = NSDate()
-        driveData = [[String : AnyObject]]()
         currentSpeedInCmPerSecond = 0.0
-        currentSpeedInCmPerSecondPer100Ms = 0.0
+        collisionDirection = 0.0
         detectCollision = false
         deaccelerationCount = 0
         DRDouble.sharedDouble().startTravelData()
@@ -533,6 +459,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     func stop() {
         currentDrive = 0.0
         currentTurn = 0.0
+        currentSpeed = 0.0
         //currentRangeInCm = 0.0
     }
 
@@ -544,23 +471,49 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
             }
         } else {
             switch self.state {
-              case .Balancing, .Rolling:
+            case .Balancing:
                 if (currentDrive != 0.0) {
+                    newState = .Starting
+                }
+            case .Starting:
+                if (currentDrive == 0.0) {
+                  if (currentDirection == driveDirection && abs(currentSpeedInCmPerSecond) > 5) {
+                    newState = .Rolling
+                  } else if (abs(currentSpeedInCmPerSecond) < 0.1) {
+                    newState = .Balancing
+                  }
+                } else if (currentDirection == driveDirection && abs(currentSpeedInCmPerSecond) > 10) {
                     newState = .Driving
                 }
             case .Driving:
                 if (currentDrive == 0.0) {
                     newState = .Rolling
                 }
+            case .Rolling:
+                if (currentDrive != 0.0 && currentDirection == driveDirection) {
+                    newState = .Driving
+                }
+            case .Stopping:
+                if (currentDirection != driveDirection) {
+                    newState = .Balancing
+                    driveDirection = .Stop
+                    if (currentRangeInCm > 0) {
+                       NSLog("About to sendDriveRangeSuccess... state: \(newState)")
+                       sendDriveRangeSuccess()
+                    }
+                }
             default:
                 break
             }
-
         }
         if (newState != self.state) {
             self.previousState = self.state
             self.state = newState
             NSLog("*** state: \(self.previousState) => \(self.state) ***")
+            // if (self.state == .Balancing) {
+            //   NSLog("Resetting collision direction...")
+            //   collisionDirection = 0.0
+            // }
         }
     }
 
@@ -588,6 +541,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     var drivingOrRolling: Bool {
         get {
             return self.state == .Driving || self.state == .Rolling
+        }
+    }
+
+    var isMoving: Bool {
+        get {
+            return self.state == .Starting || self.state == .Stopping || self.drivingOrRolling
         }
     }
 
