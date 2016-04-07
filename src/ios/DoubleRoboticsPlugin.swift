@@ -43,6 +43,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     var rangePeak:Float = 0.0;
     var driveStartDate = NSDate();
     var collisionDirection:Float = 0.0;
+    var rangeSinceCollision:Float = 0.0;
     var state = RobotState.Unknown;
     var previousState = RobotState.Unknown;
 
@@ -51,6 +52,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         NSLog("******** CDVDoubleRobotics instantiated... *******")
         driveStartDate = NSDate()
         collisionDirection = 0.0
+        rangeSinceCollision = 0.0
         DRDouble.sharedDouble().delegate = self
     }
 
@@ -95,13 +97,19 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         currentTurn = turn
         currentRangeInCm = rangeInCm
 
+        if (drive != 0.0) {
+            NSLog("-------------")
+            NSLog("--- DRIVE --- ... drive: \(drive) - rangeInCm: \(rangeInCm) - state: \(self.state)")
+            NSLog("-------------")
+        }
+
         nextDriveDirection = drive > 0 ? .Forward : .Backward
         if (driveDirection == .Stop) {
           driveDirection = nextDriveDirection
           nextDriveDirection = .Stop
         }
 
-        if (self.state == .Balancing || self.state == .Starting || self.state == .Rolling) {
+        if (self.state == .Balancing || self.state == .Starting || self.state == .Rolling || self.state == .Stopping) {
             startTravelData()
         }
 
@@ -202,10 +210,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         //     stop()
         //     NSLog("*** hasReachedCurrentRange ***")
         // }
-        if (currentSpeed == 0.0 && currentDrive != 0.0) {
-            stop()
-            NSLog("*** STOP - avgEncoderTotalCm: \(avgEncoderTotalCm) | currentSpeed: \(currentSpeed) ***")
-        } else if (currentSpeed != 0.0 || currentTurn != 0.0) {
+        if (currentSpeed != 0.0 || currentTurn != 0.0) {
             //NSLog("*** avgEncoderTotalCm: \(avgEncoderTotalCm) | leftEncoderTotalCm: \(leftEncoderTotalCm) | rightEncoderTotalCm: \(rightEncoderTotalCm) | drive: \(drive) ***")
             theDouble.variableDrive(currentSpeed, turn: currentTurn)
         } else if (currentTurnByDegrees != 0.0) {
@@ -261,6 +266,10 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         currentSpeed = calculateSpeed()
 
         if (self.isMoving) {
+          if (currentSpeed == 0.0 && self.state == .Driving) {
+              currentDrive = 0.0
+              NSLog("*** STOP SPEEDER - range: \(avgEncoderTotalCm) | currentSpeed: \(currentSpeed) ***")
+          }
           currentDirection = avgEncoderDeltaInches > 0 ? .Forward : .Backward
           let previousSpeedInCmPerSecond = currentSpeedInCmPerSecond
           currentSpeedInCmPerSecond = ((avgEncoderDeltaInches * cmPerInches) / 100) * 1000
@@ -278,7 +287,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         detectCollision(avgEncoderDeltaInches)
 
         if (self.isMoving) {
-          NSLog(" *** range: \(avgEncoderTotalCm) cm - ∆: \(avgEncoderDeltaInches) inch - drive: \(currentSpeed) - speed: \(currentSpeedInCmPerSecond) cm/s - detect: \(detectCollision) - deacc.count: \(deaccelerationCount) - dir: \(directionToArrow(driveDirection))\(directionToArrow(currentDirection)) next: \(directionToArrow(nextDriveDirection))")
+          NSLog("*** range: \(avgEncoderTotalCm) cm - ∆: \(avgEncoderDeltaInches) inch - drive: \(currentSpeed) - speed: \(currentSpeedInCmPerSecond) cm/s - detect: \(detectCollision) - deacc.count: \(deaccelerationCount) - dir: \(directionToArrow(driveDirection))\(directionToArrow(currentDirection)) next: \(directionToArrow(nextDriveDirection))")
         }
 
         if (self.drivingOrRolling && (leftEncoderTotalInches != 0.0 || rightEncoderTotalInches != 0.0)) {
@@ -312,14 +321,20 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
               NSLog("Collision detected - direction: \(collisionDirectionAsString) - speed: \(currentSpeedInCmPerSecond)")
               updateCollision(collisionDirectionAsString, force: wheelDirection);
               collisionDirection = wheelDirection
+              rangeSinceCollision = 0.0
               detectCollision = false
             }
           } else if ((collisionDirection < 0 && wheelDirection > 0) ||
                      (collisionDirection > 0 && wheelDirection < 0)) {
-                  //Reset collision detection:
-                  NSLog("Resetting collision direction...")
-                  collisionDirection = 0.0
-                  detectCollision = true
+            rangeSinceCollision += wheelDirection
+            NSLog("--- Now moving opposite after collision - rangeSinceCollision: \(rangeSinceCollision) ")
+            if (abs(rangeSinceCollision) > 0.5) {
+                //Reset collision detection:
+                NSLog("Resetting collision direction...")
+                collisionDirection = 0.0
+                rangeSinceCollision = 0.0
+                detectCollision = true
+            }
           }
       } else if (state == .Balancing) {
           //TODO: If travelData > pushThreshold => raisePushEvent!
@@ -451,6 +466,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         driveStartDate = NSDate()
         currentSpeedInCmPerSecond = 0.0
         collisionDirection = 0.0
+        rangeSinceCollision = 0.0
         detectCollision = false
         deaccelerationCount = 0
         DRDouble.sharedDouble().startTravelData()
@@ -494,7 +510,12 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
                     newState = .Driving
                 }
             case .Stopping:
-                if (currentDirection != driveDirection) {
+                if (currentDrive != 0.0) {
+                    newState = .Starting
+                    NSLog("Switching drive direction...")
+                    driveDirection = nextDriveDirection
+                    nextDriveDirection = .Stop
+                } else if (currentDirection != driveDirection) {
                     newState = .Balancing
                     driveDirection = .Stop
                     if (currentRangeInCm > 0) {
