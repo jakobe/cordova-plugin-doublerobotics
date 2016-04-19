@@ -53,6 +53,8 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         driveStartDate = NSDate()
         collisionDirection = 0.0
         rangeSinceCollision = 0.0
+        //stopTravelData if last session exited without stopping:
+        DRDouble.sharedDouble().stopTravelData()
         DRDouble.sharedDouble().delegate = self
     }
 
@@ -194,6 +196,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
         default:
             break;
         }
+        NSLog("Traveldata command: " + message)
 
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsString: message)
         commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
@@ -275,13 +278,6 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
           currentSpeedInCmPerSecond = ((avgEncoderDeltaInches * cmPerInches) / 100) * 1000
           updateState()
           detectDeacceleration(currentSpeedInCmPerSecond, previousSpeedInCmPerSecond:previousSpeedInCmPerSecond)
-        } else {
-          driveDirection = .Stop
-          currentDirection = .Stop
-          nextDriveDirection = .Stop
-          currentSpeedInCmPerSecond = 0.0
-          detectCollision = false
-          deaccelerationCount = 0
         }
 
         detectCollision(avgEncoderDeltaInches)
@@ -391,7 +387,7 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
           "leftEncoderTotalCm" : leftEncoderTotalCm,
           "rightEncoderTotalCm" : rightEncoderTotalCm,
           "avgEncoderTotalCm" : avgEncoderTotalCm,
-          "speed" : currentSpeed,
+          "speed" : currentSpeedInCmPerSecond,
           "range" : abs(avgEncoderTotalCm),
           "time" : stringFromNSDate(NSDate()),
           "start": stringFromNSDate(driveStartDate)
@@ -417,8 +413,8 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
                 "batteryIsFullyCharged" : sharedDouble.batteryIsFullyCharged,
                 "kickstandState" : UInt(sharedDouble.kickstandState),
                 "poleHeightPercent" : sharedDouble.poleHeightPercent,
-                //"serial" : sharedDouble.serial,
-                //"firmwareVersion" : sharedDouble.firmwareVersion
+                "serial" : sharedDouble.serial,
+                "firmwareVersion" : sharedDouble.firmwareVersion
             ]
             let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsDictionary: data as [String : AnyObject])
             pluginResult.setKeepCallbackAsBool(true)
@@ -516,8 +512,16 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
                     driveDirection = nextDriveDirection
                     nextDriveDirection = .Stop
                 } else if (currentDirection != driveDirection) {
+                    NSLog("Stopping => Balancing: Set speed to 0...")
                     newState = .Balancing
+                    DRDouble.sharedDouble().stopTravelData()
                     driveDirection = .Stop
+                    currentDirection = .Stop
+                    nextDriveDirection = .Stop
+                    currentSpeedInCmPerSecond = 0.0
+                    detectCollision = false
+                    deaccelerationCount = 0
+                    updateTravelData()
                     if (currentRangeInCm > 0) {
                        NSLog("About to sendDriveRangeSuccess... state: \(newState)")
                        sendDriveRangeSuccess()
