@@ -151,6 +151,12 @@ function DoubleRobotics() {
     /* DoubleRobotics Commands: */
 
     /* Event Listeners: */
+    this.watchBatteryStatus = function (listener) {
+      _addEventListener(EVENT_BATTERYSTATUS, listener);
+    };
+    this.clearWatchBatteryStatus = function(listener) {
+      _removeEventListener(EVENT_BATTERYSTATUS, listener);
+    };
     this.watchTravelData = function (listener) {
       _addEventListener(EVENT_TRAVELDATA, listener);
     };
