@@ -90,7 +90,7 @@ function DoubleRoboticsProxy() {
                 avgEncoderTotalCm: avgEncoderTotalCm,
                 speed: currentSpeed,
                 range: range,
-                time: new Date(),//msToTime(elapsedTimeInMs),
+                time: new Date(),
                 start: driveStartDate
             };
             if (driveCounter === 10) {
@@ -186,20 +186,6 @@ function DoubleRoboticsProxy() {
     this.stopCollisionListener = function (success, fail) {
         console.log("DoubleRoboticsProxy.stopCollisionListener()");
         collisionCallback = null;
-    }
-
-    function msToTime(duration) {
-        var milliseconds = parseInt((duration % 1000)),
-            seconds = parseInt((duration / 1000) % 60),
-            minutes = parseInt((duration / (1000 * 60)) % 60),
-            hours = parseInt((duration / (1000 * 60 * 60)) % 24);
-
-        hours = (hours < 10) ? "0" + hours : hours;
-        minutes = (minutes < 10) ? "0" + minutes : minutes;
-        seconds = (seconds < 10) ? "0" + seconds : seconds;
-        milliseconds = (milliseconds < 100) ? "0" + milliseconds : milliseconds;
-
-        return hours + ":" + minutes + ":" + seconds + "." + milliseconds;
     }
 }
 
