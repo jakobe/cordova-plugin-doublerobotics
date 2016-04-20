@@ -88,7 +88,16 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     var nextDriveDirection:DRDriveDirection = .Stop
 
+    func sendNotConnectedError(command: CDVInvokedUrlCommand) {
+        let message = "Robot not connected. Make sure bluetooth and robot is turned on and connected."
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAsString: message)
+        commandDelegate!.sendPluginResult(pluginResult, callbackId:command.callbackId)
+    }
+
     func drive(command: CDVInvokedUrlCommand) {
+        if (self.state == .Unknown) {
+            return sendNotConnectedError(command)
+        }
         rangePeak = 0.0
         let drive = command.arguments[0] as! Float
         let turn = command.arguments[1] as! Float
@@ -126,6 +135,9 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func stop(command: CDVInvokedUrlCommand) {
+        if (self.state == .Unknown) {
+            return sendNotConnectedError(command)
+        }
         NSLog("*** stop() ***")
         stop()
         driveCallbackId = nil
@@ -135,6 +147,9 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func turnByDegrees(command: CDVInvokedUrlCommand) {
+        if (self.state == .Unknown) {
+            return sendNotConnectedError(command)
+        }
         let degrees = command.arguments[0] as! Float
         currentTurn = 0.0
         currentTurnByDegrees = degrees
@@ -144,6 +159,9 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func pole(command: CDVInvokedUrlCommand) {
+        if (self.state == .Unknown) {
+            return sendNotConnectedError(command)
+        }
         let poleCommand = command.arguments[0] as! String
         switch (poleCommand) {
         case "poleDown":
@@ -164,6 +182,9 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
     }
 
     func kickstand(command: CDVInvokedUrlCommand) {
+        if (self.state == .Unknown) {
+            return sendNotConnectedError(command)
+        }
         let kickstandCommand = command.arguments[0] as! String
 
         switch (kickstandCommand) {
@@ -407,15 +428,19 @@ class DoubleRobotics : CDVPlugin, DRDoubleDelegate  {
 
     func updateStatus() {
         if (self.statusCallbackId != nil && !self.statusCallbackId!.isEmpty) {
+            var data: [String : AnyObject] = [:]
             let sharedDouble = DRDouble.sharedDouble()
-            let data: [String : AnyObject] = [
-                "batteryPercent" : sharedDouble.batteryPercent,
-                "batteryIsFullyCharged" : sharedDouble.batteryIsFullyCharged,
-                "kickstandState" : UInt(sharedDouble.kickstandState),
-                "poleHeightPercent" : sharedDouble.poleHeightPercent,
-                "serial" : sharedDouble.serial,
-                "firmwareVersion" : sharedDouble.firmwareVersion
-            ]
+            if (sharedDouble.serial != nil) {
+                data = [
+                    "batteryPercent" : sharedDouble.batteryPercent,
+                    "batteryIsFullyCharged" : sharedDouble.batteryIsFullyCharged,
+                    "kickstandState" : UInt(sharedDouble.kickstandState),
+                    "poleHeightPercent" : sharedDouble.poleHeightPercent,
+                    "serial" : sharedDouble.serial,
+                    "firmwareVersion" : sharedDouble.firmwareVersion
+                ]
+            }
+
             let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAsDictionary: data as [String : AnyObject])
             pluginResult.setKeepCallbackAsBool(true)
             commandDelegate!.sendPluginResult(pluginResult, callbackId:self.statusCallbackId!)
